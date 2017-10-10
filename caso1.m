@@ -26,9 +26,11 @@ AcumSeries[listInterArrivalsTime_]:= Module[{AcumVal=0},AcumVal+=#&/@listInterAr
 Arrivals = AcumSeries[InterArrivalsTime];
  (*Arrivals = Accumulate[InterArrivalsTime];*)
  (*& para que considere que es una funci\[OAcute]n*)
+ (*Ejercicio 2.5*)
  FifoSchedulling [arrivals_,service_]:=Module[{n,checkTime},n=1;checkTime=arrivals[[1]]; (If [checkTime >= #,checkTime+=service[[n++]],checkTime=#+service[[n++]]])&/@arrivals];
  Departures = FifoSchedulling [InterArrivalsTime,ServiceTime];
- Show[ListPlot[Arrivals[[1;;20]]],ListPlot[Departures[[1;;20]]]]
+ (*Ejercicio 2.6*)
+ Manipulate[Show[ListPlot[Arrivals[[origin;;origin+width]]],ListPlot[Departures[[origin;;origin+width]]]],{origin,1,nmax-width,1},{width,1,50,1}]
 
 
 
