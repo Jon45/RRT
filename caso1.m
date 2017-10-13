@@ -15,7 +15,7 @@ Histogram[RandomExpTable]
 
 (*Ejercicio 2.1*)
 nmax = 5000;
-lambda = 50;
+lambda = 10;
 mu = 100;
 (*Ejercicio 2.2*)
 InterArrivalsTime = Table[RandomExp[lambda],nmax];
@@ -28,9 +28,6 @@ Arrivals = AcumSeries[InterArrivalsTime];
  (*& para que considere que es una funci\[OAcute]n*)
  (*Ejercicio 2.5*)
  FifoSchedulling [arrivals_,service_]:=Module[{n,checkTime},n=1;checkTime=arrivals[[1]]; (If [checkTime >= #,checkTime+=service[[n++]],checkTime=#+service[[n++]]])&/@arrivals];
- Departures = FifoSchedulling [InterArrivalsTime,ServiceTime];
+ Departures = FifoSchedulling [Arrivals,ServiceTime];
  (*Ejercicio 2.6*)
- Manipulate[Show[ListPlot[Arrivals[[origin;;origin+width]]],ListPlot[Departures[[origin;;origin+width]]]],{origin,1,nmax-width,1},{width,1,50,1}]
-
-
-
+ Manipulate[Show[ListPlot[Arrivals[[origin;;origin+width]],PlotStyle->Red],ListPlot[Departures[[origin;;origin+width]],PlotStyle->Blue],PlotRange->All],{origin,1,nmax-width,1},{width,1,50,1}]
