@@ -7,7 +7,6 @@ RandomTable = Table [RandomData[],1000];
 Histogram[RandomTable]
 
 
-
 (*Ejercicio 3*)
 lambda=50;
 RandomExpTable=Table[RandomExp[lambda],1000];
@@ -67,7 +66,3 @@ Departures = FifoSchedulling [Arrivals,ServiceTime];
 {#,Mean[Departures-Arrivals]}
 )&/@lambda;
 ListPlot[MeanWaitingTime]
-
-
-
-
