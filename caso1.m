@@ -16,7 +16,7 @@ Histogram[RandomExpTable]
 
 (*Ejercicio 4*)
 nmax = 5000;
-lambda = 90;
+lambda = 95;
 mu = 100;
 
 InterArrivalsTime = Table[RandomExp[lambda],nmax];
@@ -47,6 +47,14 @@ Arrivals = AcumSeries[InterArrivalsTime];
  Manipulate[ListPlot[UserStepStair[[origin;;origin+width]],InterpolationOrder -> 0,Joined -> True],{origin,1,nmax-width,1},{width,1,50,1}]
 
 
+ calculateStepStair [lista_]:= Module [ {nUsers}, nUsers=0;
+ Join [{{0,0}},({#,nUsers+=1})&/@lista]
+ ];
+ StepsArrivals = calculateStepStair[Arrivals];
+ StepsDepartures = calculateStepStair[Departures];
+ Manipulate[Show[ListPlot[StepsArrivals[[origin;;origin+width]],InterpolationOrder -> 0,Joined -> True],ListPlot[StepsDepartures[[origin;;origin+width]],InterpolationOrder -> 0,Joined -> True,PlotStyle->Red]],{origin,1,nmax-width,1},{width,1,50,1}]
+
+
 (*Ejercicio 5*)
 NPoints=100;
 mu=1;
@@ -59,3 +67,7 @@ Departures = FifoSchedulling [Arrivals,ServiceTime];
 {#,Mean[Departures-Arrivals]}
 )&/@lambda;
 ListPlot[MeanWaitingTime]
+
+
+
+
