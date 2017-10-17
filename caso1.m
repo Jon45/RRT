@@ -56,13 +56,13 @@ Arrivals = AcumSeries[InterArrivalsTime];
 
 (*Ejercicio 5*)
 NPoints=100;
-mu=1;
-lambda=Range[1/NPoints,1,1/NPoints];
+lambda2=Range[1/NPoints,1,1/NPoints];
+mu2=1;
 MeanWaitingTime=(
 InterArrivalsTime = Table[RandomExp[#],nmax];
-ServiceTime = Table[RandomExp[mu],nmax];
+ServiceTime = Table[RandomExp[mu2],nmax];
 Arrivals = AcumSeries[InterArrivalsTime];
 Departures = FifoSchedulling [Arrivals,ServiceTime];
 {#,Mean[Departures-Arrivals]}
-)&/@lambda;
+)&/@lambda2;
 ListPlot[MeanWaitingTime]
