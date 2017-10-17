@@ -1,7 +1,7 @@
 (* ::Package:: *)
 
 (*Ejercicio 1*)
-Needs[ "RandomData`"]
+Needs["RandomData`"]
 (*Ejercicio 2*)
 RandomTable = Table [RandomData[],1000];
 Histogram[RandomTable]
@@ -43,7 +43,7 @@ Arrivals = AcumSeries[InterArrivalsTime];
  ];
  UserStepStair=calculateNumberUsers[Arrivals,Departures];
  maxLength = Length [UserStepStair];
- Manipulate[ListPlot[UserStepStair[[origin;;origin+width]],InterpolationOrder -> 0,Joined -> True],{origin,1,nmax-width,1},{width,1,50,1}]
+ Manipulate[ListPlot[UserStepStair[[origin;;origin+width]],InterpolationOrder -> 0,Joined -> True],{origin,1,nmax-width,1},{width,1,50,1}] (*ListStepPlot tambi\[EAcute]n vale*)
 
 
  calculateStepStair [lista_]:= Module [ {nUsers}, nUsers=0;
