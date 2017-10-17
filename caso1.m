@@ -14,7 +14,7 @@ Histogram[RandomExpTable]
 
 
 (*Ejercicio 4*)
-nmax = 5000;
+nmax = 10000;
 lambda = 95;
 mu = 100;
 
@@ -56,13 +56,33 @@ Arrivals = AcumSeries[InterArrivalsTime];
 
 (*Ejercicio 5*)
 NPoints=100;
-lambda2=Range[1/NPoints,1,1/NPoints];
-mu2=1;
+Module[{InterArrivalsTime,ServiceTime,Arrivals,Departures,lambda,mu},
+lambda=Range[1/NPoints,1,1/NPoints];
+mu=1;
 MeanWaitingTime=(
 InterArrivalsTime = Table[RandomExp[#],nmax];
-ServiceTime = Table[RandomExp[mu2],nmax];
+ServiceTime = Table[RandomExp[mu],nmax];
 Arrivals = AcumSeries[InterArrivalsTime];
 Departures = FifoSchedulling [Arrivals,ServiceTime];
 {#,Mean[Departures-Arrivals]}
-)&/@lambda2;
+)&/@lambda;
+]
 ListPlot[MeanWaitingTime]
+
+
+(*Ejercicio 6*)
+nmax=100;
+ProbabilidadesTeoricas[nmax_,p_]:= Module[{n},n=Range[0,nmax,1];((1-p)*p^n)&/@n];
+pTeoricas=ProbabilidadesTeoricas[nmax,lambda/mu];
+ListPlot[pTeoricas]
+(*ProbabilidadesSimuladas[Arrivals_,Departures_] := Module[MapThread[,,]
+ ];*)
+Pasta[Arrivals_,UserStepStair_]:= (position=FirstPosition[Transpose[UserStepStair][[1]],#]; Flatten[UserStepStair[[position]]] [[2]])&/@Arrivals;
+cuentaPasta = Pasta[Arrivals,UserStepStair];
+n=Range[0,nmax,1];
+probabilidadesPasta = (Count[cuentaPasta,#])&/@n
+probabilidadesPasta=probabilidadesPasta/Total[probabilidadesPasta];
+ListPlot[probabilidadesPasta]
+
+
+
