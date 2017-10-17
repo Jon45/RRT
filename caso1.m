@@ -77,10 +77,10 @@ pTeoricas=ProbabilidadesTeoricas[nmax,lambda/mu];
 ListPlot[pTeoricas]
 (*ProbabilidadesSimuladas[Arrivals_,Departures_] := Module[MapThread[,,]
  ];*)
-Pasta[Arrivals_,UserStepStair_]:= (position=FirstPosition[Transpose[UserStepStair][[1]],#]; Flatten[UserStepStair[[position]]] [[2]])&/@Arrivals;
+Pasta[Arrivals_,UserStepStair_]:= (position=FirstPosition[Transpose[UserStepStair][[1]],#]; Flatten[UserStepStair[[position]]] [[2]]-1)&/@Arrivals;
 cuentaPasta = Pasta[Arrivals,UserStepStair];
 n=Range[0,nmax,1];
-probabilidadesPasta = (Count[cuentaPasta,#])&/@n
+probabilidadesPasta = (Count[cuentaPasta,#])&/@n;
 probabilidadesPasta=probabilidadesPasta/Total[probabilidadesPasta];
 ListPlot[probabilidadesPasta]
 
