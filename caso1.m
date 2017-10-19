@@ -8,14 +8,14 @@ Histogram[RandomTable]
 
 
 (*Ejercicio 3*)
-lambda=50;
+lambda=10;
 RandomExpTable=Table[RandomExp[lambda],1000];
 Histogram[RandomExpTable]
 
 
 (*Ejercicio 4*)
-nmax = 10000;
-lambda = 95;
+nmax = 1000;
+lambda = 10;
 mu = 100;
 
 InterArrivalsTime = Table[RandomExp[lambda],nmax];
@@ -74,15 +74,25 @@ ListPlot[MeanWaitingTime]
 nmax=100;
 ProbabilidadesTeoricas[nmax_,p_]:= Module[{n},n=Range[0,nmax,1];((1-p)*p^n)&/@n];
 pTeoricas=ProbabilidadesTeoricas[nmax,lambda/mu];
-ListPlot[pTeoricas]
-(*ProbabilidadesSimuladas[Arrivals_,Departures_] := Module[MapThread[,,]
- ];*)
-Pasta[Arrivals_,UserStepStair_]:= (position=FirstPosition[Transpose[UserStepStair][[1]],#]; Flatten[UserStepStair[[position]]] [[2]]-1)&/@Arrivals;
-cuentaPasta = Pasta[Arrivals,UserStepStair];
+ListPlot[pTeoricas,PlotRange -> Full]
+
+ProbabilidadesSimuladas[UserStepStair_,nmax_] := Module[{ocurrencias,n,p,i,acumval},
+ocurrencias=MapThread[({#2[[1]]-#1[[1]],#1[[2]]})&,{UserStepStair[[1;;Length[UserStepStair]-1]],UserStepStair[[2;;Length[UserStepStair]]]}];
+n=Range[0,nmax,1];
+p=(acumval=0;For[i=1,i<=Length[ocurrencias],i++,If[#==ocurrencias[[i,2]],acumval+=ocurrencias[[i,1]]]];acumval)&/@n;
+p/Total[p]
+];
+pSimuladas=ProbabilidadesSimuladas[UserStepStair,nmax];
+ListPlot[pSimuladas,PlotRange -> Full]
+
+Pasta[Arrivals_,UserStepStair_,nmax_]:= Module[{position,n,cuentaPasta,probabilidadesPasta},
+cuentaPasta=(position=FirstPosition[Transpose[UserStepStair][[1]],#]; Flatten[UserStepStair[[position]]] [[2]]-1)&/@Arrivals;
 n=Range[0,nmax,1];
 probabilidadesPasta = (Count[cuentaPasta,#])&/@n;
-probabilidadesPasta=probabilidadesPasta/Total[probabilidadesPasta];
-ListPlot[probabilidadesPasta]
+probabilidadesPasta/Total[probabilidadesPasta]
+];
+probabilidadesPasta=Pasta[Arrivals,UserStepStair,nmax];
+ListPlot[probabilidadesPasta,PlotRange -> Full]
 
 
 
