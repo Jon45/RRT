@@ -77,19 +77,26 @@ pTeoricas=ProbabilidadesTeoricas[nmax,lambda/mu];
 ListPlot[pTeoricas,PlotRange -> Full]
 
 ProbabilidadesSimuladas[UserStepStair_,nmax_] := Module[{ocurrencias,n,p,i,acumval},
-ocurrencias=MapThread[({#2[[1]]-#1[[1]],#1[[2]]})&,{UserStepStair[[1;;Length[UserStepStair]-1]],UserStepStair[[2;;Length[UserStepStair]]]}];
+ocurrencias=MapThread[({#2[[1]]-#1[[1]],#1[[2]]})&,{UserStepStair[[1;;Length[UserStepStair]-1]],UserStepStair[[2;;Length[UserStepStair]]]}]; (*Obtiene una lista de parejas de valores. 
+Primer valor \[Rule] Diferencia de tiempos entre 2 puntos contiguos de userStepStair. Segundo valor \[Rule] n\[UAcute]mero de usuarios del primero de los puntos contiguos*)
 n=Range[0,nmax,1];
-p=(acumval=0;For[i=1,i<=Length[ocurrencias],i++,If[#==ocurrencias[[i,2]],acumval+=ocurrencias[[i,1]]]];acumval)&/@n;
-p/Total[p]
+p=(acumval=0;For[i=1,i<=Length[ocurrencias],i++,If[#==ocurrencias[[i,2]],acumval+=ocurrencias[[i,1]]]];acumval)&/@n; (*Cuenta el tiempo que se est\[AAcute] en cada estado. p[[i+1]] \[Rule] tiempo en el estado i*)
+p/Total[p] (*Normaliza de forma que la suma total de p sea 1*)
 ];
 pSimuladas=ProbabilidadesSimuladas[UserStepStair,nmax];
 ListPlot[pSimuladas,PlotRange -> Full]
 
 Pasta[Arrivals_,UserStepStair_,nmax_]:= Module[{position,n,cuentaPasta,probabilidadesPasta},
-cuentaPasta=(position=FirstPosition[Transpose[UserStepStair][[1]],#]; Flatten[UserStepStair[[position]]] [[2]]-1)&/@Arrivals;
+cuentaPasta=(position=FirstPosition[Transpose[UserStepStair][[1]],#]; (*Muestrea userStepStair en puntos de tiempo definidos por los tiempos de llegada. Busca en UserStepStair puntos cuyo tiempo coincida con el tiempo
+de llegada y obtiene su posici\[OAcute]n. Para cada iteraci\[OAcute]n deber\[IAcute]a s\[OAcute]lo haber uno, por eso se utiliza FirstPosition*)
+Flatten[UserStepStair[[position]]] [[2]]-1)&/@Arrivals; (*Teniendo en cuenta la posici\[OAcute]n, se extrae el n\[UAcute]mero de usuarios correspondiente. Se resta 1 para considerar el n\[UAcute]mero de usuarios justo antes de la llegada,
+de forma que sea posible que haya 0 usuarios. Estas dos sentencias se repiten para cada valor del array Arrivals*)
 n=Range[0,nmax,1];
-probabilidadesPasta = (Count[cuentaPasta,#])&/@n;
-probabilidadesPasta/Total[probabilidadesPasta]
+probabilidadesPasta = (Count[cuentaPasta,#])&/@n; (*Para cada valor de n, cuenta el n\[UAcute]mero de ocurrencias de ese valor en el n\[UAcute]mero de usuarios*)
+probabilidadesPasta/Total[probabilidadesPasta] (*Normalizaci\[OAcute]n para que la suma sea 1*)
 ];
 probabilidadesPasta=Pasta[Arrivals,UserStepStair,nmax];
 ListPlot[probabilidadesPasta,PlotRange -> Full]
+
+
+
