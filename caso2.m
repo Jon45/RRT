@@ -78,10 +78,10 @@ paquetes[[numRepet,4]]=0;
 tp=0.5;
 tack=0.1;
 nmax=10000;
-lambda=10000;
+lambda=1;
 mu=2;
 p=0.5;
-ti=1/u;
+ti=1/mu;
 a=(ti + 2*tp + tack)/ti;
 
 InterArrivalsTime = Table[RandomExp[lambda],nmax];
@@ -101,13 +101,47 @@ Manipulate [ Show [ DrawWin[origin,ww,8],Map[DrawPacketTx[#]&, SelectPacketInWin
 ThroughputTeorico = (1-p)/(a*ti)
 
 AcumVal=0;
-Calculos = (If [#[[4]]==0,AcumVal+=1];{#[[1]]+#[[2]]+2*tp+tack,AcumVal(*/(#[[1]]+#[[2]]+2*tp+tack)*)})&/@lstPck
+Calculos = (If [#[[4]]==1,AcumVal+=#[[2]]+2*tp+tack];{#[[1]]+#[[2]]+2*tp+tack,AcumVal(*/(#[[1]]+#[[2]]+2*tp+tack)*)})&/@lstPck
+
+ThroughputReal = nmax/(lstPck[[Length[lstPck],1]] + lstPck[[Length[lstPck],2]]/9600 + 2*tp + tack)
+
+
+FifoPacketTxSW2[lstArr_,p_]:= Module[{n,checkTime,paquetes,lista,numRepeticiones,paquetesIter},n=1;checkTime=lstArr[[1,1]]; paquetes={}; (lista=GetPacketRTxSW2[#,p];paquetesIter = lista[[2]]; numRepeticiones=lista[[1]]; If [checkTime >= #[[1]],
+checkTime+=numRepeticiones*#[[2]]/9600+(numRepeticiones-1)*(tack+2*tp),
+checkTime=#[[1]]+numRepeticiones*#[[2]]/9600+(numRepeticiones-1)*(tack+2*tp)
+];
+n=numRepeticiones+1;
+paquetesIter = (n--;{checkTime-n*#[[2]]/9600-(n-1)*(tack+2*tp),#[[2]],#[[3]],#[[4]],#[[5]]})&/@paquetesIter;
+AppendTo[paquetes,paquetesIter];
+)&/@lstArr;
+Partition[Flatten[paquetes],5]
+];
+
+GetPacketRTxSW2[pck_,p_]:= Module[{numRepet,paquetes},
+numRepet= Length[NestWhileList[#&,p,#>RandomReal[]&]];
+paquetes = Table[{pck[[1]],pck[[2]],pck[[3]],1,n},{n,1,numRepet,1}];
+paquetes[[numRepet,4]]=0;
+{numRepet,paquetes}
+];
+
+
+InterArrivalsTime = Table[RandomExp[lambda],nmax];
+ServiceTime = Table[RandomExp[mu],nmax];
+
+Arrivals = AcumSeries[InterArrivalsTime];
+
+sequenceNumbers = Table[n,{n,1,Length[Arrivals],1}];
+
+paquetesLlegados = MapThread[({#1,9600*#2,#3,0,0})&,{Arrivals,ServiceTime,sequenceNumbers}];
+
+lstPck = FifoPacketTxSW2[paquetesLlegados,p];
+SetIniParDraw[tp,tack];
+Manipulate [ Show [ DrawWin[origin,ww,8],Map[DrawPacketTx[#]&, SelectPacketInWin[lstPck]]],{origin,0,100-ww},{ww,0.1,50}]
+
+
+ThroughputTeorico = (1-p)/(ti*(1+(a-1)*p))
 
 ThroughputReal = nmax/(lstPck[[Length[lstPck],1]] + lstPck[[Length[lstPck],2]]/9600 + 2*tp + tack)
 
 
 
-
-
- 
- 
