@@ -75,12 +75,14 @@ paquetes[[numRepet,4]]=0;
 ];
 
 
-nmax=100;
-lambda=1;
-u=2;
+tp=0.5;
+tack=0.1;
+nmax=10000;
+lambda=10000;
+mu=2;
 p=0.5;
 ti=1/u;
-a=(ti + 2*tp + tack)*u;
+a=(ti + 2*tp + tack)/ti;
 
 InterArrivalsTime = Table[RandomExp[lambda],nmax];
 ServiceTime = Table[RandomExp[mu],nmax];
@@ -94,3 +96,18 @@ paquetesLlegados = MapThread[({#1,9600*#2,#3,0,0})&,{Arrivals,ServiceTime,sequen
 lstPck = FifoPacketTxSW[paquetesLlegados,p];
 SetIniParDraw[tp,tack];
 Manipulate [ Show [ DrawWin[origin,ww,8],Map[DrawPacketTx[#]&, SelectPacketInWin[lstPck]]],{origin,0,100-ww},{ww,0.1,50}]
+
+
+ThroughputTeorico = (1-p)/(a*ti)
+
+AcumVal=0;
+Calculos = (If [#[[4]]==0,AcumVal+=1];{#[[1]]+#[[2]]+2*tp+tack,AcumVal(*/(#[[1]]+#[[2]]+2*tp+tack)*)})&/@lstPck
+
+ThroughputReal = nmax/(lstPck[[Length[lstPck],1]] + lstPck[[Length[lstPck],2]]/9600 + 2*tp + tack)
+
+
+
+
+
+ 
+ 
