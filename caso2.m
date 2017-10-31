@@ -78,7 +78,7 @@ paquetes[[numRepet,4]]=0;
 tp=0.5;
 tack=0.1;
 nmax=10000;
-lambda=1;
+lambda=0.01;
 mu=2;
 p=0.5;
 ti=1/mu;
@@ -101,9 +101,11 @@ Manipulate [ Show [ DrawWin[origin,ww,8],Map[DrawPacketTx[#]&, SelectPacketInWin
 ThroughputTeorico = (1-p)/(a*ti)
 
 AcumVal=0;
-Calculos = (If [#[[4]]==1,AcumVal+=#[[2]]+2*tp+tack];{#[[1]]+#[[2]]+2*tp+tack,AcumVal(*/(#[[1]]+#[[2]]+2*tp+tack)*)})&/@lstPck
+AcumVal2=0;
 
 ThroughputReal = nmax/(lstPck[[Length[lstPck],1]] + lstPck[[Length[lstPck],2]]/9600 + 2*tp + tack)
+(AcumVal+=#[[2]]/9600+2*tp+tack; If [#[[4]]==0,AcumVal2+=1])&/@lstPck;
+ThroughputReal2=AcumVal2/(AcumVal) (*Esto funciona incluso con lambdas bajas*)
 
 
 FifoPacketTxSW2[lstArr_,p_]:= Module[{n,checkTime,paquetes,lista,numRepeticiones,paquetesIter},n=1;checkTime=lstArr[[1,1]]; paquetes={}; (lista=GetPacketRTxSW2[#,p];paquetesIter = lista[[2]]; numRepeticiones=lista[[1]]; If [checkTime >= #[[1]],
@@ -142,6 +144,11 @@ Manipulate [ Show [ DrawWin[origin,ww,8],Map[DrawPacketTx[#]&, SelectPacketInWin
 ThroughputTeorico = (1-p)/(ti*(1+(a-1)*p))
 
 ThroughputReal = nmax/(lstPck[[Length[lstPck],1]] + lstPck[[Length[lstPck],2]]/9600 + 2*tp + tack)
+
+AcumVal=0;
+AcumVal2=0;
+(If [#[[4]]==0,AcumVal2+=1;AcumVal+=#[[2]]/9600,AcumVal+=#[[2]]/9600+2*tp+tack])&/@lstPck;
+ThroughputReal2=AcumVal2/(AcumVal) (*Esto funciona incluso con lambdas bajas*)
 
 
 
