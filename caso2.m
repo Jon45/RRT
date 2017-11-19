@@ -82,7 +82,7 @@ lambda=0.01;
 mu=2;
 p=0.5;
 ti=1/mu;
-a=(ti + 2*tp + tack)/ti;
+a=(ti + 2*tp + tack)/ti; (*a no se puede meter en las funciones. Preguntar*)
 
 InterArrivalsTime = Table[RandomExp[lambda],nmax];
 ServiceTime = Table[RandomExp[mu],nmax];
@@ -106,6 +106,16 @@ AcumVal2=0;
 ThroughputReal = nmax/(lstPck[[Length[lstPck],1]] + lstPck[[Length[lstPck],2]]/9600 + 2*tp + tack)
 (AcumVal+=#[[2]]/9600+2*tp+tack; If [#[[4]]==0,AcumVal2+=1])&/@lstPck;
 ThroughputReal2=AcumVal2/(AcumVal) (*Esto funciona incluso con lambdas bajas*)
+
+
+Plot[(1-p)/(a*ti),{p,0,1},AxesLabel -> {p,"Throughput(paquetes/s)"}]
+Plot[(1-p)/(a*ti),{a,1,10},AxesLabel -> {a,"Throughput(paquetes/s)"}]
+Plot[(1-p)/(a*ti),{ti,0,100},AxesLabel -> {ti,"Throughput(paquetes/s)"}]
+(*\[DownQuestion]Rho por qu\[EAcute]? Throughput m\[AAcute]ximo es suponiendo que rho \[Rule] 1 *)
+
+
+Manipulate[Plot[(1-p)/(a*ti),{ti,0,100}],{p,0,1},{a,1,10}]
+(*S\[OAcute]lo de esos 2, no de rho. Gr\[AAcute]ficas te\[OAcute]ricas o pr\[AAcute]cticas? Aqu\[IAcute] son te\[OAcute]ricas*)
 
 
 FifoPacketTxSW2[lstArr_,p_]:= Module[{n,checkTime,paquetes,lista,numRepeticiones,paquetesIter},n=1;checkTime=lstArr[[1,1]]; paquetes={}; (lista=GetPacketRTxSW2[#,p];paquetesIter = lista[[2]]; numRepeticiones=lista[[1]]; If [checkTime >= #[[1]],
@@ -151,4 +161,9 @@ AcumVal2=0;
 ThroughputReal2=AcumVal2/(AcumVal) (*Esto funciona incluso con lambdas bajas*)
 
 
+Plot[(1-p)/(ti*(1+(a-1)*p)),{p,0,1},AxesLabel -> {p,"Throughput(paquetes/s)"}]
+Plot[(1-p)/(ti*(1+(a-1)*p)),{a,1,10},AxesLabel -> {a,"Throughput(paquetes/s)"}]
+Plot[(1-p)/(ti*(1+(a-1)*p)),{ti,0,100},AxesLabel -> {ti,"Throughput(paquetes/s)"}]
 
+
+Manipulate[Plot[(1-p)/(ti*(1+(a-1)*p)),{ti,0,100}],{p,0,1},{a,1,10}]
