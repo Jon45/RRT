@@ -78,9 +78,9 @@ paquetes[[numRepet,4]]=0;
 tp=0.5;
 tack=0.1;
 nmax=10000;
-lambda=0.01;
+lambda=1.99;
 mu=2;
-p=0.5;
+p=0;
 ti=1/mu;
 a=(ti + 2*tp + tack)/ti; (*a no se puede meter en las funciones. Preguntar*)
 
@@ -103,9 +103,10 @@ ThroughputTeorico = (1-p)/(a*ti)
 AcumVal=0;
 AcumVal2=0;
 
-ThroughputReal = nmax/(lstPck[[Length[lstPck],1]] + lstPck[[Length[lstPck],2]]/9600 + 2*tp + tack)
+ThroughputReal = Module[{n,lastThroughput},n=0;lastThroughput=0;(If [#[[4]]==0,n++;lastThroughput=n/(#[[1]]+#[[2]]/9600+2*tp+tack),lastThroughput])&/@lstPck];
+ListPlot[ThroughputReal] (*Para que tienda a algo, utilizar lambdas altas*)
 (AcumVal+=#[[2]]/9600+2*tp+tack; If [#[[4]]==0,AcumVal2+=1])&/@lstPck;
-ThroughputReal2=AcumVal2/(AcumVal) (*Esto funciona incluso con lambdas bajas*)
+ThroughputReal2=AcumVal2/(AcumVal) (*Esto funciona incluso con lambdas bajas. Throughput al que tiende*)
 
 
 Plot[(1-p)/(a*ti),{p,0,1},AxesLabel -> {p,"Throughput(paquetes/s)"}]
@@ -152,13 +153,16 @@ Manipulate [ Show [ DrawWin[origin,ww,8],Map[DrawPacketTx[#]&, SelectPacketInWin
 
 
 ThroughputTeorico = (1-p)/(ti*(1+(a-1)*p))
-
-ThroughputReal = nmax/(lstPck[[Length[lstPck],1]] + lstPck[[Length[lstPck],2]]/9600 + 2*tp + tack)
-
+ThroughputReal = Module[{n,lastThroughput},n=0;lastThroughput=0;(If [#[[4]]==0,n++;lastThroughput=n/(#[[1]]+#[[2]]/9600),lastThroughput])&/@lstPck]
+ListPlot[ThroughputReal]
 AcumVal=0;
 AcumVal2=0;
 (If [#[[4]]==0,AcumVal2+=1;AcumVal+=#[[2]]/9600,AcumVal+=#[[2]]/9600+2*tp+tack])&/@lstPck;
 ThroughputReal2=AcumVal2/(AcumVal) (*Esto funciona incluso con lambdas bajas*)
+
+
+(* ::Output:: *)
+(*If[24336106661052234256 === $SessionID, Out[168], Message[MessageName[Syntax, "noinfoker"]]; Missing["NotAvailable"]; Null]*)
 
 
 Plot[(1-p)/(ti*(1+(a-1)*p)),{p,0,1},AxesLabel -> {p,"Throughput(paquetes/s)"}]
