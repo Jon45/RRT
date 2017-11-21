@@ -18,8 +18,8 @@ nmax = 1000;
 lambda = 1;
 mu = 10;
 
-tp=0.5;
-tack=0.1;
+tp=0;
+tack=0;
 
 InterArrivalsTime = Table[RandomExp[lambda],nmax];
 
@@ -31,12 +31,12 @@ Arrivals = AcumSeries[InterArrivalsTime];
 FifoSchedulling [arrivals_,service_]:=Module[{n,checkTime},n=1;checkTime=arrivals[[1]]; (If [checkTime >= #,checkTime+=service[[n++]],checkTime=#+service[[n++]]])&/@arrivals];
 Departures = FifoSchedulling [Arrivals,ServiceTime];
 
-injTimes = Departures - ServiceTime;
+injTimes = Departures - ServiceTime; (*Cuando se empieza a transmitir el paquete*)
 (*sequenceNumbers = Table[n,{n,1,9,1}];
 lstPck = Table[{2+n*10,10,n+1,0,0},{n,0,9}]*)
 
 sequenceNumbers = Table[n,{n,1,Length[injTimes],1}];
-lstPck = MapThread[({#1,9600*#2,#3,0,0})&,{injTimes,ServiceTime,sequenceNumbers}];
+lstPck = MapThread[({#1,9600*#2,#3,0,0})&,{injTimes,ServiceTime,sequenceNumbers}]; (*Duraci\[OAcute]n de paquete se multiplica por 9600 para obtener longitud de paquete en bits*)
 
 
 SetIniParDraw[tp,tack];
@@ -54,23 +54,25 @@ n++;
 llegada+=RandomExp[lambda];
 ];
 llegadas
-];
+]; (*Esta funci\[OAcute]n no se utiliza. En el ejemplo subido a egela est\[AAcute] como hacerlo*)
 
-FifoPacketTxSW[lstArr_,p_]:= Module[{n,checkTime,paquetes,lista,numRepeticiones,paquetesIter},n=1;checkTime=lstArr[[1,1]]; paquetes={}; (lista=GetPacketRTxSW[#,p];paquetesIter = lista[[2]]; numRepeticiones=lista[[1]]; If [checkTime >= #[[1]],
+FifoPacketTxSW[lstArr_,p_]:= Module[{n,checkTime,paquetes,lista,numRepeticiones,paquetesIter},n=1;checkTime=lstArr[[1,1]]; paquetes={}; 
+(lista=GetPacketRTxSW[#,p];paquetesIter = lista[[2]]; numRepeticiones=lista[[1]]; (*Para cada paquete, obtiene una lista de paquetes derivados de su transmisi\[OAcute]n correcta y las transmisiones err\[OAcute]neas*)
+If [checkTime >= #[[1]],
 checkTime+=numRepeticiones*(#[[2]]/9600+tack+2*tp),
 checkTime=#[[1]]+numRepeticiones*(#[[2]]/9600+tack+2*tp)
 ];
 n=numRepeticiones+1;
-paquetesIter = (n--;{checkTime-n*(#[[2]]/9600+tack+2*tp),#[[2]],#[[3]],#[[4]],#[[5]]})&/@paquetesIter;
+paquetesIter = (n--;{checkTime-n*(#[[2]]/9600+tack+2*tp),#[[2]],#[[3]],#[[4]],#[[5]]})&/@paquetesIter; (*Se ponen los tiempos de inyecci\[OAcute]n de los paquetes para cada una de las transmisiones*)
 AppendTo[paquetes,paquetesIter];
 )&/@lstArr;
-Partition[Flatten[paquetes],5]
+Partition[Flatten[paquetes],5] (*Para que tengan el formato adecuado. Se hace un flatten de toda la lista, y se subdivide cada 5 elementos, los que conforman un paquete*)
 ];
 
 GetPacketRTxSW[pck_,p_]:= Module[{numRepet,paquetes},
-numRepet= Length[NestWhileList[#&,p,#>RandomReal[]&]];
-paquetes = Table[{pck[[1]],pck[[2]],pck[[3]],1,n},{n,1,numRepet,1}];
-paquetes[[numRepet,4]]=0;
+numRepet= Length[NestWhileList[#&,p,#>RandomReal[]&]]; (*Establece el n\[UAcute]mero de repeticiones*)
+paquetes = Table[{pck[[1]],pck[[2]],pck[[3]],1,n},{n,1,numRepet,1}]; (*Genera los paquetes repetidos y el correcto*)
+paquetes[[numRepet,4]]=0; (*El \[UAcute]ltimo paquete es el correcto, por lo que su cuarto campo tiene que valer 0*)
 {numRepet,paquetes}
 ];
 
@@ -104,7 +106,7 @@ AcumVal=0;
 AcumVal2=0;
 
 ThroughputReal = Module[{n,lastThroughput},n=0;lastThroughput=0;(If [#[[4]]==0,n++;lastThroughput=n/(#[[1]]+#[[2]]/9600+2*tp+tack),lastThroughput])&/@lstPck];
-ListPlot[ThroughputReal] (*Para que tienda a algo, utilizar lambdas altas*)
+ListPlot[ThroughputReal] (*Para que tienda a algo, utilizar lambdas altas. Tampoco parece que tienda mucho, de todas formas*)
 (AcumVal+=#[[2]]/9600+2*tp+tack; If [#[[4]]==0,AcumVal2+=1])&/@lstPck;
 ThroughputReal2=AcumVal2/(AcumVal) (*Esto funciona incluso con lambdas bajas. Throughput al que tiende*)
 
@@ -120,7 +122,7 @@ Manipulate[Plot[(1-p)/(a*ti),{ti,0,100}],{p,0,1},{a,1,10}]
 
 
 FifoPacketTxSW2[lstArr_,p_]:= Module[{n,checkTime,paquetes,lista,numRepeticiones,paquetesIter},n=1;checkTime=lstArr[[1,1]]; paquetes={}; (lista=GetPacketRTxSW2[#,p];paquetesIter = lista[[2]]; numRepeticiones=lista[[1]]; If [checkTime >= #[[1]],
-checkTime+=numRepeticiones*#[[2]]/9600+(numRepeticiones-1)*(tack+2*tp),
+checkTime+=numRepeticiones*#[[2]]/9600+(numRepeticiones-1)*(tack+2*tp), (*Los paquetes correctos ahora s\[OAcute]lo necesitan ti tiempo para transmitirse, tp y tack no influyen.*)
 checkTime=#[[1]]+numRepeticiones*#[[2]]/9600+(numRepeticiones-1)*(tack+2*tp)
 ];
 n=numRepeticiones+1;
@@ -159,10 +161,6 @@ AcumVal=0;
 AcumVal2=0;
 (If [#[[4]]==0,AcumVal2+=1;AcumVal+=#[[2]]/9600,AcumVal+=#[[2]]/9600+2*tp+tack])&/@lstPck;
 ThroughputReal2=AcumVal2/(AcumVal) (*Esto funciona incluso con lambdas bajas*)
-
-
-(* ::Output:: *)
-(*If[24336106661052234256 === $SessionID, Out[168], Message[MessageName[Syntax, "noinfoker"]]; Missing["NotAvailable"]; Null]*)
 
 
 Plot[(1-p)/(ti*(1+(a-1)*p)),{p,0,1},AxesLabel -> {p,"Throughput(paquetes/s)"}]
