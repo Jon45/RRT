@@ -23,7 +23,7 @@ tack=0;
 
 InterArrivalsTime = Table[RandomExp[lambda],nmax];
 
-ServiceTime = Table[RandomExp[mu],nmax];
+ServiceTime = Table[RandomExp[mu],nmax]; (*Ahora esto define las longitudes de los paquetes*)
 
 AcumSeries[listInterArrivalsTime_]:= Module[{AcumVal=0},AcumVal+=#&/@listInterArrivalsTime];
 Arrivals = AcumSeries[InterArrivalsTime];
@@ -122,7 +122,7 @@ Manipulate[Plot[(1-p)/(a*ti),{ti,0,100}],{p,0,1},{a,1,10}]
 
 
 FifoPacketTxSW2[lstArr_,p_]:= Module[{n,checkTime,paquetes,lista,numRepeticiones,paquetesIter},n=1;checkTime=lstArr[[1,1]]; paquetes={}; (lista=GetPacketRTxSW2[#,p];paquetesIter = lista[[2]]; numRepeticiones=lista[[1]]; If [checkTime >= #[[1]],
-checkTime+=numRepeticiones*#[[2]]/9600+(numRepeticiones-1)*(tack+2*tp), (*Los paquetes correctos ahora s\[OAcute]lo necesitan ti tiempo para transmitirse, tp y tack no influyen.*)
+checkTime+=numRepeticiones*#[[2]]/9600+(numRepeticiones-1)*(tack+2*tp), (*Los paquetes correctos ahora s\[OAcute]lo necesitan ti tiempo para transmitirse, tp y tack no influyen. Incorrectos \[Rule] como si duraran a*ti*)
 checkTime=#[[1]]+numRepeticiones*#[[2]]/9600+(numRepeticiones-1)*(tack+2*tp)
 ];
 n=numRepeticiones+1;
