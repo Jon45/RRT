@@ -1,0 +1,4 @@
+packet paquete
+{
+    int sequenceNumber;
+}
