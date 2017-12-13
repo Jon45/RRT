@@ -3,6 +3,7 @@
 #include <paquete_m.h>
 #include <timeoutMessage_m.h>
 #include <algorithm>
+#include <functional>
 
 using namespace omnetpp;
 
@@ -19,9 +20,9 @@ class gobackn_tx : public cSimpleModule
         paquete *packet;
     };
     arrivals *arr;
-    cMessage **timeoutEvents;
     cMessage *sendEvent;
     simtime_t timeout;
+    std::map <int,myTimeoutMessage *>timeoutEvents;
   protected:
     virtual void initialize() override;
     virtual void handleMessage(cMessage *msg) override;
@@ -51,8 +52,12 @@ void gobackn_tx::initialize()
     send(arr[0].packet -> dup(), "gate$o");
     numPaquete=0;
     myTimeoutMessage *timeoutEvent = new myTimeoutMessage();
+    timeoutEvent->setSequenceNumber(numPaquete);
+    timeoutEvent->setName("timeoutEvent");
     scheduleAt(simTime()+timeout, timeoutEvent);
+    timeoutEvents.insert({numPaquete, timeoutEvent});
     transmitted_packets=0;
+    scheduleAt(arr[numPaquete].llegadas, sendEvent); //cambiar tiempo
 
     throughputStats.setName("throughputStats");
     throughputStats.setRangeAutoUpper(0, 10, 1.5);
@@ -64,9 +69,9 @@ void gobackn_tx::handleMessage(cMessage *msg)
     if (strcmp(msg->getName(),"timeoutEvent") == 0)
     {
         EV << "Timeout expired, reseting packet number";
-        //cancelEvent(timeoutEvent); // Cancelar múltiples timeouts
-        paquete *pack = check_and_cast<paquete *>(msg);
-        numPaquete=pack->getSequenceNumber()-1;
+        timeoutEvents.erase(timeoutEvents.begin(),timeoutEvents.end());
+        myTimeoutMessage *timeout_rec = check_and_cast<myTimeoutMessage *>(msg);
+        numPaquete=timeout_rec->getSequenceNumber()-1;
         //Igual marcar para que siguiente recepción de ack se considere inválida
     }
     else if (msg == sendEvent)
@@ -77,12 +82,14 @@ void gobackn_tx::handleMessage(cMessage *msg)
         if (numPaquete <(int)par("n_paquetes"))
         {
             send(arr[numPaquete].packet -> dup(), "gate$o");
-            //setTimeoutEvent
-            //scheduleAt(simTime()+timeout, timeoutEvent);
-            scheduleAt(simTime()+timeout, sendEvent); //cambiar tiempo
+            myTimeoutMessage *timeoutEvent = new myTimeoutMessage();
+            timeoutEvent->setSequenceNumber(numPaquete);
+            scheduleAt(simTime()+timeout, timeoutEvent);
+            timeoutEvents.insert({numPaquete, timeoutEvent});
+            double time = std::max(simTime().dbl(),arr[numPaquete].llegadas);
+            scheduleAt(time, sendEvent);
             transmitted_packets++;
         }
-        delete msg;
     }
     else
     {
@@ -94,7 +101,10 @@ void gobackn_tx::handleMessage(cMessage *msg)
 
         else
         {
-            //Cancelar timeout de ese paquete
+            paquete *pack = check_and_cast<paquete *>(msg);
+            std::map<int,myTimeoutMessage *>::iterator it = timeoutEvents.find(pack->getSequenceNumber());
+            if (it != timeoutEvents.end())
+                timeoutEvents.erase (it);
         }
     }
     double throughput = numPaquete/simTime();
