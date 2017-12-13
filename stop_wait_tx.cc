@@ -1,6 +1,7 @@
 #include <string.h>
 #include <omnetpp.h>
 #include <paquete_m.h>
+#include <algorithm>
 
 using namespace omnetpp;
 
@@ -18,6 +19,7 @@ class stop_wait_tx : public cSimpleModule
     };
     arrivals *arr;
     cMessage *timeoutEvent;
+    cMessage *sendEvent;
     simtime_t timeout;
   protected:
     virtual void initialize() override;
@@ -44,10 +46,9 @@ void stop_wait_tx::initialize()
         msg -> setSequenceNumber(i);
         arr[i].packet = msg;
     }
-
-    send(arr[0].packet -> dup(), "gate$o");
+    sendEvent = new cMessage("sendEvent");
+    scheduleAt(arr[0].llegadas,sendEvent);
     numPaquete=0;
-    scheduleAt(simTime()+timeout, timeoutEvent);
     transmitted_packets=0;
 
     throughputStats.setName("throughputStats");
@@ -60,6 +61,13 @@ void stop_wait_tx::handleMessage(cMessage *msg)
     if (msg == timeoutEvent)
     {
         EV << "Timeout expired, resending message and restarting timer\n";
+        send(arr[numPaquete].packet -> dup(), "gate$o");
+        scheduleAt(simTime()+timeout, timeoutEvent);
+        transmitted_packets++;
+    }
+
+    else if (msg == sendEvent)
+    {
         send(arr[numPaquete].packet -> dup(), "gate$o");
         scheduleAt(simTime()+timeout, timeoutEvent);
         transmitted_packets++;
@@ -80,9 +88,8 @@ void stop_wait_tx::handleMessage(cMessage *msg)
             numPaquete++;
             if (numPaquete <(int)par("n_paquetes"))
             {
-                send(arr[numPaquete].packet -> dup(), "gate$o");
-                scheduleAt(simTime()+timeout, timeoutEvent);
-                transmitted_packets++;
+                double time = std::max(simTime().dbl(),arr[numPaquete].llegadas);
+                scheduleAt(time, sendEvent);
             }
         }
         delete msg;

@@ -28,7 +28,7 @@ void stop_wait_rx::handleMessage(cMessage *msg)
     }
     else
     {
-        paquete *rec_msg = check_and_cast<paquete*>(msg);
+        paquete *rec_msg = check_and_cast<paquete *>(msg);
         paquete *confirmacion = new paquete("ack");
         confirmacion->setByteLength(0);
         confirmacion->setSequenceNumber(rec_msg -> getSequenceNumber());
