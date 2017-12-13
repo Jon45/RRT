@@ -1,0 +1,4 @@
+message myTimeoutMessage
+{
+    int sequenceNumber;
+}
