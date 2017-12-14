@@ -23,6 +23,7 @@ class gobackn_tx : public cSimpleModule
     cMessage *sendEvent;
     simtime_t timeout;
     std::map <int,myTimeoutMessage *>timeoutEvents;
+    cChannel * txChannel;
   protected:
     virtual void initialize() override;
     virtual void handleMessage(cMessage *msg) override;
@@ -62,6 +63,8 @@ void gobackn_tx::initialize()
     throughputStats.setName("throughputStats");
     throughputStats.setRangeAutoUpper(0, 10, 1.5);
     throughputVector.setName("throughput");
+
+    txChannel = gate("gate$o")->getTransmissionChannel();
 }
 
 void gobackn_tx::handleMessage(cMessage *msg)
@@ -86,7 +89,7 @@ void gobackn_tx::handleMessage(cMessage *msg)
             timeoutEvent->setSequenceNumber(numPaquete);
             scheduleAt(simTime()+timeout, timeoutEvent);
             timeoutEvents.insert({numPaquete, timeoutEvent});
-            double time = std::max(simTime().dbl(),arr[numPaquete].llegadas);
+            double time = std::max(txChannel->getTransmissionFinishTime().dbl(),arr[numPaquete].llegadas);
             scheduleAt(time, sendEvent);
             transmitted_packets++;
         }
