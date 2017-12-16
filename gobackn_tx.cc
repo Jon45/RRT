@@ -50,12 +50,10 @@ void gobackn_tx::initialize()
         arr[i].packet = msg;
     }
 
-    send(arr[0].packet -> dup(), "gate$o");
     numPaquete=0;
     myTimeoutMessage *timeoutEvent = new myTimeoutMessage();
     timeoutEvent->setSequenceNumber(numPaquete);
     timeoutEvent->setName("timeoutEvent");
-    scheduleAt(simTime()+timeout, timeoutEvent);
     timeoutEvents.insert({numPaquete, timeoutEvent});
     transmitted_packets=0;
     scheduleAt(arr[numPaquete].llegadas, sendEvent); //cambiar tiempo
@@ -71,22 +69,29 @@ void gobackn_tx::handleMessage(cMessage *msg)
 {
     if (strcmp(msg->getName(),"timeoutEvent") == 0)
     {
-        EV << "Timeout expired, reseting packet number";
+        EV << "Timeout expired" << endl;
+        EV << "Timers cancelled.\n" << endl;
+        std::map<int,myTimeoutMessage *>::iterator it;
+        for (it=timeoutEvents.begin();it!=timeoutEvents.end();it++)
+        {
+            cancelEvent(it->second);
+        }
         timeoutEvents.erase(timeoutEvents.begin(),timeoutEvents.end());
         myTimeoutMessage *timeout_rec = check_and_cast<myTimeoutMessage *>(msg);
         numPaquete=timeout_rec->getSequenceNumber()-1;
+        EV << "Reset packet number to: " << numPaquete << endl;
         //Igual marcar para que siguiente recepción de ack se considere inválida
     }
     else if (msg == sendEvent)
     {
-        EV << "Timers cancelled.\n";
-
         numPaquete++;
         if (numPaquete <(int)par("n_paquetes"))
         {
+            EV << "Sending packet with sequence number: " << numPaquete << endl;
             send(arr[numPaquete].packet -> dup(), "gate$o");
             myTimeoutMessage *timeoutEvent = new myTimeoutMessage();
             timeoutEvent->setSequenceNumber(numPaquete);
+            timeoutEvent->setName("timeoutEvent");
             scheduleAt(simTime()+timeout, timeoutEvent);
             timeoutEvents.insert({numPaquete, timeoutEvent});
             double time = std::max(txChannel->getTransmissionFinishTime().dbl(),arr[numPaquete].llegadas);
@@ -104,9 +109,11 @@ void gobackn_tx::handleMessage(cMessage *msg)
 
         else
         {
+            EV << "Ack received";
             paquete *pack = check_and_cast<paquete *>(msg);
             std::map<int,myTimeoutMessage *>::iterator it = timeoutEvents.find(pack->getSequenceNumber());
             if (it != timeoutEvents.end())
+                cancelEvent(it -> second);
                 timeoutEvents.erase (it);
         }
     }
