@@ -113,8 +113,10 @@ void gobackn_tx::handleMessage(cMessage *msg)
             paquete *pack = check_and_cast<paquete *>(msg);
             std::map<int,myTimeoutMessage *>::iterator it = timeoutEvents.find(pack->getSequenceNumber());
             if (it != timeoutEvents.end())
+            {
                 cancelEvent(it -> second);
                 timeoutEvents.erase (it);
+            }
         }
     }
     double throughput = numPaquete/simTime();
