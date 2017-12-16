@@ -16,7 +16,7 @@ class gobackn_tx : public cSimpleModule
     cOutVector throughputVector;
     struct arrivals
     {
-        double llegadas;
+        simtime_t llegadas;
         paquete *packet;
     };
     arrivals *arr;
@@ -78,26 +78,33 @@ void gobackn_tx::handleMessage(cMessage *msg)
         }
         timeoutEvents.erase(timeoutEvents.begin(),timeoutEvents.end());
         myTimeoutMessage *timeout_rec = check_and_cast<myTimeoutMessage *>(msg);
-        numPaquete=timeout_rec->getSequenceNumber()-1;
+        numPaquete=timeout_rec->getSequenceNumber();
         EV << "Reset packet number to: " << numPaquete << endl;
+
+        cancelEvent(sendEvent);
+        simtime_t time = std::max(txChannel->getTransmissionFinishTime(),arr[numPaquete].llegadas);
+        scheduleAt(time, sendEvent);
         //Igual marcar para que siguiente recepción de ack se considere inválida
     }
     else if (msg == sendEvent)
     {
+        EV << "Sending packet with sequence number: " << numPaquete << endl;
+        send(arr[numPaquete].packet -> dup(), "gate$o");
+        myTimeoutMessage *timeoutEvent = new myTimeoutMessage();
+        timeoutEvent->setSequenceNumber(numPaquete);
+        timeoutEvent->setName("timeoutEvent");
+        scheduleAt(simTime()+timeout, timeoutEvent);
+        timeoutEvents.insert({numPaquete, timeoutEvent});
         numPaquete++;
         if (numPaquete <(int)par("n_paquetes"))
         {
-            EV << "Sending packet with sequence number: " << numPaquete << endl;
-            send(arr[numPaquete].packet -> dup(), "gate$o");
-            myTimeoutMessage *timeoutEvent = new myTimeoutMessage();
-            timeoutEvent->setSequenceNumber(numPaquete);
-            timeoutEvent->setName("timeoutEvent");
-            scheduleAt(simTime()+timeout, timeoutEvent);
-            timeoutEvents.insert({numPaquete, timeoutEvent});
-            double time = std::max(txChannel->getTransmissionFinishTime().dbl(),arr[numPaquete].llegadas);
+            simtime_t time = std::max(txChannel->getTransmissionFinishTime(),arr[numPaquete].llegadas);
+            EV << "Tiempo de fin de transmision: " << txChannel->getTransmissionFinishTime().dbl() << endl;
+            EV << "Tiempo de llegada: " << arr[numPaquete].llegadas << endl;
+            EV << "Time: " << time << endl;
             scheduleAt(time, sendEvent);
-            transmitted_packets++;
         }
+        transmitted_packets++;
     }
     else
     {
