@@ -82,7 +82,7 @@ void gobackn_tx::handleMessage(cMessage *msg)
         EV << "Reset packet number to: " << numPaquete << endl;
 
         cancelEvent(sendEvent);
-        simtime_t time = std::max(txChannel->getTransmissionFinishTime(),arr[numPaquete].llegadas);
+        simtime_t time = std::max({txChannel->getTransmissionFinishTime(),arr[numPaquete].llegadas,simTime()});
         scheduleAt(time, sendEvent);
         //Igual marcar para que siguiente recepción de ack se considere inválida
     }
@@ -98,7 +98,7 @@ void gobackn_tx::handleMessage(cMessage *msg)
         numPaquete++;
         if (numPaquete <(int)par("n_paquetes"))
         {
-            simtime_t time = std::max(txChannel->getTransmissionFinishTime(),arr[numPaquete].llegadas);
+            simtime_t time = std::max({txChannel->getTransmissionFinishTime(),arr[numPaquete].llegadas,simTime()});
             EV << "Tiempo de fin de transmision: " << txChannel->getTransmissionFinishTime().dbl() << endl;
             EV << "Tiempo de llegada: " << arr[numPaquete].llegadas << endl;
             EV << "Time: " << time << endl;
