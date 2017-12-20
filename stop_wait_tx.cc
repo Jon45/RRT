@@ -12,19 +12,18 @@ class stop_wait_tx : public cSimpleModule
     int transmitted_packets;
     cLongHistogram throughputStats;
     cOutVector throughputVector;
-    struct arrivals
-    {
-        double llegadas;
-        paquete *packet;
-    };
-    arrivals *arr;
+    paquete *currentMessage;
     cMessage *timeoutEvent;
-    cMessage *sendEvent;
     simtime_t timeout;
+    cQueue *txQueue;
+    enum state {idle=0,active=1};
+    state estado;
   protected:
     virtual void initialize() override;
     virtual void handleMessage(cMessage *msg) override;
     virtual void finish() override;
+    virtual void sendNewPacket();
+    virtual void sendPacket();
 };
 
 Define_Module(stop_wait_tx);
@@ -33,23 +32,10 @@ void stop_wait_tx::initialize()
 {
     timeout=par("timeout");
     timeoutEvent = new cMessage("timeoutEvent");
-    arr = new arrivals[(int)par("n_paquetes")];
-    for(int i=0;i<(int) par("n_paquetes");i++)
-    {
-        arr[i].llegadas = (double) par("interArrivalsTime");
-        if (i!=0)
-        {
-            arr[i].llegadas+=arr[i-1].llegadas;
-        }
-        paquete *msg = new paquete("mensaje ");
-        msg->setByteLength((int)par("packet_length"));
-        msg -> setSequenceNumber(i);
-        arr[i].packet = msg;
-    }
-    sendEvent = new cMessage("sendEvent");
-    scheduleAt(arr[0].llegadas,sendEvent);
+    txQueue = new cQueue();
     numPaquete=0;
     transmitted_packets=0;
+    estado=idle;
 
     throughputStats.setName("throughputStats");
     throughputStats.setRangeAutoUpper(0, 10, 1.5);
@@ -58,52 +44,85 @@ void stop_wait_tx::initialize()
 
 void stop_wait_tx::handleMessage(cMessage *msg)
 {
-    if (msg == timeoutEvent)
+    if (msg->isSelfMessage())
     {
-        EV << "Timeout expired, resending message and restarting timer\n";
-        send(arr[numPaquete].packet -> dup(), "gate$o");
-        scheduleAt(simTime()+timeout, timeoutEvent);
-        transmitted_packets++;
+        if (msg == timeoutEvent)
+        {
+            EV << "Timeout expired, resending message and restarting timer\n";
+            send(currentMessage->dup(), "gate$o");
+            scheduleAt(simTime()+timeout, timeoutEvent);
+            transmitted_packets++;
+        }
     }
 
-    else if (msg == sendEvent)
-    {
-        send(arr[numPaquete].packet -> dup(), "gate$o");
-        scheduleAt(simTime()+timeout, timeoutEvent);
-        transmitted_packets++;
-    }
     else
     {
-        if (uniform(0,1)<par("p_ack").doubleValue())
-        {
-            EV << "\"Losing\" ack.\n";
-            bubble("ack lost");
-        }
-
-        else
-        {
-            EV << "Timer cancelled.\n";
-            cancelEvent(timeoutEvent);
-
-            numPaquete++;
-            if (numPaquete <(int)par("n_paquetes"))
+        if (strcmp(msg->getArrivalGate()->getFullName(),"inPaquete") == 0)
             {
-                double time = std::max(simTime().dbl(),arr[numPaquete].llegadas);
-                scheduleAt(time, sendEvent);
+                if (estado == idle)
+                {
+                    currentMessage = check_and_cast <paquete *>(msg);
+                    estado=active;
+                    sendPacket();
+                }
+
+                else
+                {
+                    txQueue->insert(msg);
+                }
             }
-        }
-        delete msg;
+
+            else
+            {
+                if (uniform(0,1)<par("p_ack").doubleValue())
+                {
+                    EV << "\"Losing\" ack.\n";
+                    bubble("ack lost");
+                }
+
+                else
+                {
+                    EV << "Timer cancelled.\n";
+                    cancelEvent(timeoutEvent);
+
+                    numPaquete++;
+                    sendNewPacket();
+                }
+                delete msg;
+            }
     }
-    double throughput = numPaquete/simTime();
-    throughputVector.record(throughput);
-    throughputStats.collect(throughput);
+        double throughput = numPaquete/simTime();
+        throughputVector.record(throughput);
+        throughputStats.collect(throughput);
 }
+
 
 void stop_wait_tx::finish()
 {
-    double package_error_rate = (1-(double)par("n_paquetes")/(double)transmitted_packets);
+    double package_error_rate = (1-(double)numPaquete/(double)transmitted_packets);
     EV << "package_error_rate: " << package_error_rate << endl;
     EV << "throughput: " << par("n_paquetes")/simTime() << endl;
 
     throughputStats.recordAs("Throughput");
+}
+
+void stop_wait_tx::sendNewPacket()
+{
+    if (txQueue->isEmpty() == false)
+    {
+        currentMessage = check_and_cast<paquete *>(txQueue->pop());
+        sendPacket();
+    }
+
+    else
+    {
+        estado = idle;
+    }
+}
+
+void stop_wait_tx::sendPacket()
+{
+    send(currentMessage -> dup(), "gate$o");
+    scheduleAt(simTime()+timeout, timeoutEvent);
+    transmitted_packets++;
 }
