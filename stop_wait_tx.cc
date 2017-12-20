@@ -16,6 +16,7 @@ class stop_wait_tx : public cSimpleModule
     cMessage *timeoutEvent;
     simtime_t timeout;
     cQueue *txQueue;
+    cChannel * txChannel;
     enum state {idle=0,active=1};
     state estado;
   protected:
@@ -36,6 +37,7 @@ void stop_wait_tx::initialize()
     numPaquete=0;
     transmitted_packets=0;
     estado=idle;
+    txChannel = gate("gate$o")->getTransmissionChannel();
 
     throughputStats.setName("throughputStats");
     throughputStats.setRangeAutoUpper(0, 10, 1.5);
@@ -50,7 +52,7 @@ void stop_wait_tx::handleMessage(cMessage *msg)
         {
             EV << "Timeout expired, resending message and restarting timer\n";
             send(currentMessage->dup(), "gate$o");
-            scheduleAt(simTime()+timeout, timeoutEvent);
+            scheduleAt(txChannel->getTransmissionFinishTime()+timeout, timeoutEvent);
             transmitted_packets++;
         }
     }
@@ -123,6 +125,6 @@ void stop_wait_tx::sendNewPacket()
 void stop_wait_tx::sendPacket()
 {
     send(currentMessage -> dup(), "gate$o");
-    scheduleAt(simTime()+timeout, timeoutEvent);
+    scheduleAt(txChannel->getTransmissionFinishTime()+timeout, timeoutEvent);
     transmitted_packets++;
 }
