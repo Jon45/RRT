@@ -101,7 +101,7 @@ void stop_wait_tx::finish()
 {
     double package_error_rate = (1-(double)numPaquete/(double)transmitted_packets);
     EV << "package_error_rate: " << package_error_rate << endl;
-    EV << "throughput: " << par("n_paquetes")/simTime() << endl;
+    EV << "throughput: " << numPaquete/simTime() << endl;
 
     throughputStats.recordAs("Throughput");
 }
