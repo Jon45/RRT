@@ -19,15 +19,30 @@ class gobackn_tx : public cSimpleModule
         simtime_t llegadas;
         paquete *packet;
     };
-    arrivals *arr;
     cMessage *sendEvent;
     simtime_t timeout;
     std::map <int,myTimeoutMessage *>timeoutEvents;
-    cChannel * txChannel;
+    cChannel *txChannel;
+    enum state {idle=0,active=1};
+    state estado;
+    cQueue *txQueue;
+    paquete *currentMessage;
+    std::vector<paquete*> pendingPackets;
+    std::vector<int> receivedAcks;
+
   protected:
     virtual void initialize() override;
     virtual void handleMessage(cMessage *msg) override;
     virtual void finish() override;
+    virtual void sendNewPacket();
+    virtual void sendPacket();
+    virtual void onTimeoutEvent(cMessage *msg);
+    virtual void cancelTimeoutEvents();
+    virtual void onSendEvent(cMessage *msg);
+    virtual void insertInPendingPackets();
+    virtual void insertReceivedAck(int ack);
+    virtual void checkAndRemoveFromVectors();
+    virtual void resetQueue();
 };
 
 Define_Module(gobackn_tx);
@@ -36,75 +51,46 @@ void gobackn_tx::initialize()
 {
     timeout=par("timeout");
     sendEvent = new cMessage("sendEvent");
-    arr = new arrivals[(int)par("n_paquetes")];
-    for(int i=0;i<(int) par("n_paquetes");i++)
-    {
-        arr[i].llegadas = (double) par("interArrivalsTime");
-        if (i!=0)
-        {
-            arr[i].llegadas+=arr[i-1].llegadas;
-        }
-        paquete *msg = new paquete("mensaje ");
-        msg->setByteLength((int)par("packet_length"));
-        msg -> setSequenceNumber(i);
-        arr[i].packet = msg;
-    }
 
     numPaquete=0;
-    myTimeoutMessage *timeoutEvent = new myTimeoutMessage();
-    timeoutEvent->setSequenceNumber(numPaquete);
-    timeoutEvent->setName("timeoutEvent");
-    timeoutEvents.insert({numPaquete, timeoutEvent});
     transmitted_packets=0;
-    scheduleAt(arr[numPaquete].llegadas, sendEvent); //cambiar tiempo
 
     throughputStats.setName("throughputStats");
     throughputStats.setRangeAutoUpper(0, 10, 1.5);
     throughputVector.setName("throughput");
 
     txChannel = gate("gate$o")->getTransmissionChannel();
+    estado = idle;
+    txQueue = new cQueue();
 }
 
 void gobackn_tx::handleMessage(cMessage *msg)
 {
-    if (strcmp(msg->getName(),"timeoutEvent") == 0)
+    if (msg -> isSelfMessage())
     {
-        EV << "Timeout expired" << endl;
-        EV << "Timers cancelled.\n" << endl;
-        std::map<int,myTimeoutMessage *>::iterator it;
-        for (it=timeoutEvents.begin();it!=timeoutEvents.end();it++)
+        if (strcmp(msg->getName(),"timeoutEvent") == 0)
         {
-            cancelEvent(it->second);
+            onTimeoutEvent(msg);
         }
-        timeoutEvents.erase(timeoutEvents.begin(),timeoutEvents.end());
-        myTimeoutMessage *timeout_rec = check_and_cast<myTimeoutMessage *>(msg);
-        numPaquete=timeout_rec->getSequenceNumber();
-        EV << "Reset packet number to: " << numPaquete << endl;
-
-        cancelEvent(sendEvent);
-        simtime_t time = std::max({txChannel->getTransmissionFinishTime(),arr[numPaquete].llegadas,simTime()});
-        scheduleAt(time, sendEvent);
-        //Igual marcar para que siguiente recepción de ack se considere inválida
+        else if (msg == sendEvent)
+        {
+            onSendEvent(msg);
+        }
     }
-    else if (msg == sendEvent)
+
+    else if (strcmp(msg->getArrivalGate()->getFullName(),"inPaquete") == 0)
     {
-        EV << "Sending packet with sequence number: " << numPaquete << endl;
-        send(arr[numPaquete].packet -> dup(), "gate$o");
-        myTimeoutMessage *timeoutEvent = new myTimeoutMessage();
-        timeoutEvent->setSequenceNumber(numPaquete);
-        timeoutEvent->setName("timeoutEvent");
-        scheduleAt(simTime()+timeout, timeoutEvent);
-        timeoutEvents.insert({numPaquete, timeoutEvent});
-        numPaquete++;
-        if (numPaquete <(int)par("n_paquetes"))
+        if (estado == idle)
         {
-            simtime_t time = std::max({txChannel->getTransmissionFinishTime(),arr[numPaquete].llegadas,simTime()});
-            EV << "Tiempo de fin de transmision: " << txChannel->getTransmissionFinishTime().dbl() << endl;
-            EV << "Tiempo de llegada: " << arr[numPaquete].llegadas << endl;
-            EV << "Time: " << time << endl;
-            scheduleAt(time, sendEvent);
+            currentMessage = check_and_cast <paquete *>(msg);
+            estado=active;
+            sendPacket();
         }
-        transmitted_packets++;
+
+        else
+        {
+            txQueue->insert(msg);
+        }
     }
     else
     {
@@ -116,14 +102,16 @@ void gobackn_tx::handleMessage(cMessage *msg)
 
         else
         {
-            EV << "Ack received";
             paquete *pack = check_and_cast<paquete *>(msg);
+            EV << "Ack received: " << pack->getSequenceNumber();
             std::map<int,myTimeoutMessage *>::iterator it = timeoutEvents.find(pack->getSequenceNumber());
             if (it != timeoutEvents.end())
             {
                 cancelEvent(it -> second);
                 timeoutEvents.erase (it);
             }
+            insertReceivedAck(pack->getSequenceNumber());
+            checkAndRemoveFromVectors();
         }
     }
     double throughput = numPaquete/simTime();
@@ -133,9 +121,149 @@ void gobackn_tx::handleMessage(cMessage *msg)
 
 void gobackn_tx::finish()
 {
-    double package_error_rate = (1-(double)par("n_paquetes")/(double)transmitted_packets);
+    double package_error_rate = (1-(double)(numPaquete+1)/(double)transmitted_packets);
     EV << "package_error_rate: " << package_error_rate << endl;
-    EV << "throughput: " << par("n_paquetes")/simTime() << endl;
+    EV << "throughput: " << (numPaquete+1)/simTime() << endl;
 
     throughputStats.recordAs("Throughput");
 }
+
+void gobackn_tx::sendNewPacket()
+{
+    if (txQueue->isEmpty() == false)
+    {
+        currentMessage = check_and_cast<paquete *>(txQueue->pop());
+        sendPacket();
+    }
+
+    else
+    {
+        estado = idle;
+    }
+}
+
+void gobackn_tx::sendPacket()
+{
+    EV << "Sending packet with sequence number: " << currentMessage -> getSequenceNumber() << endl;
+    numPaquete++;
+    send(currentMessage -> dup(), "gate$o");
+    transmitted_packets++;
+    myTimeoutMessage *timeoutEvent = new myTimeoutMessage();
+    timeoutEvent->setSequenceNumber(currentMessage -> getSequenceNumber());
+    timeoutEvent->setName("timeoutEvent");
+    timeoutEvents.insert({currentMessage -> getSequenceNumber(), timeoutEvent});
+    scheduleAt(txChannel->getTransmissionFinishTime()+timeout, timeoutEvent);
+    scheduleAt(txChannel->getTransmissionFinishTime(), sendEvent);
+    insertInPendingPackets();
+}
+
+void gobackn_tx::onTimeoutEvent(cMessage *msg)
+{
+    EV << "Timeout expired" << endl;
+    EV << "Timers cancelled.\n" << endl;
+    cancelTimeoutEvents();
+    myTimeoutMessage *timeout_rec = check_and_cast<myTimeoutMessage *>(msg);
+    numPaquete=timeout_rec->getSequenceNumber();
+    EV << "Reset packet number to: " << numPaquete << endl;
+    receivedAcks.erase(receivedAcks.begin(),receivedAcks.end());
+    resetQueue();
+    cancelEvent(sendEvent);
+    simtime_t time = std::max(txChannel->getTransmissionFinishTime(),simTime());
+    scheduleAt(time, sendEvent);
+    //Igual cancelar sendEvent, cancelar transmisión y enviar instantáneamente. Considerar
+}
+
+void gobackn_tx::cancelTimeoutEvents()
+{
+    std::map<int,myTimeoutMessage *>::iterator it;
+    for (it=timeoutEvents.begin();it!=timeoutEvents.end();it++)
+    {
+        cancelEvent(it->second);
+    }
+    timeoutEvents.erase(timeoutEvents.begin(),timeoutEvents.end());
+}
+
+void gobackn_tx::onSendEvent(cMessage *msg)
+{
+    sendNewPacket();
+}
+
+void gobackn_tx::insertInPendingPackets()
+{
+    if (pendingPackets.size() == 0)
+    {
+        std::vector<paquete*>::iterator it = pendingPackets.begin();
+        pendingPackets.insert(it,currentMessage);
+    }
+    else
+    {
+        std::vector<paquete*>::iterator it;
+        for (it = pendingPackets.begin(); it != pendingPackets.end(); ++it)
+        {
+            paquete *pack = *it;
+            if (pack ->getSequenceNumber() > currentMessage->getSequenceNumber())
+            {
+                pendingPackets.insert(it, currentMessage);
+            }
+        }
+        if (it == pendingPackets.end())
+        {
+            pendingPackets.insert(it,currentMessage);
+        }
+    }
+}
+
+void gobackn_tx::insertReceivedAck(int ack)
+{
+    if (receivedAcks.size() == 0)
+    {
+        std::vector<int>::iterator it = receivedAcks.begin();
+        receivedAcks.insert(it,ack);
+    }
+    else
+    {
+        std::vector<int>::iterator it;
+        for ( it = receivedAcks.begin(); it != receivedAcks.end(); ++it)
+        {
+            int ackIterated = *it;
+            if (ackIterated > ack)
+            {
+                receivedAcks.insert(it, ack);
+            }
+        }
+        if (it == receivedAcks.end())
+        {
+            receivedAcks.insert(it,ack);
+        }
+    }
+}
+
+void gobackn_tx::checkAndRemoveFromVectors()
+{
+    while (receivedAcks.size()!=0 && pendingPackets.size()!=0 && pendingPackets.at(0)->getSequenceNumber() == receivedAcks.at(0))
+    {
+        EV << "Eliminado paquete con numero de secuencia " << pendingPackets.at(0)->getSequenceNumber();
+        pendingPackets.erase(pendingPackets.begin());
+        receivedAcks.erase(receivedAcks.begin());
+    }
+}
+
+void gobackn_tx::resetQueue()
+{
+    for (std::vector<paquete*>::reverse_iterator it = pendingPackets.rbegin(); it != pendingPackets.rend(); ++it)
+    {
+        paquete *pack = *it;
+        if (txQueue->isEmpty() == false)
+        {
+            txQueue->insertBefore(txQueue->front(), pack);
+        }
+        else
+        {
+            txQueue->insert(pack);
+        }
+    }
+    estado = active;
+    pendingPackets.erase(pendingPackets.begin(),pendingPackets.end());
+    receivedAcks.erase(receivedAcks.begin(),receivedAcks.end());
+}
+
