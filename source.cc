@@ -50,6 +50,6 @@ paquete * Source::generaPaquete(){
     sprintf(nombrePaquete,"msg-%d",seq++);
     paquete *msg = new paquete(nombrePaquete,0);
     msg -> setSequenceNumber(seq);
-    msg -> setBitLength((long)par("packet_length"));
+    msg -> setBitLength((int)par("packet_length"));
     return msg;
 }
