@@ -121,9 +121,9 @@ void gobackn_tx::handleMessage(cMessage *msg)
 
 void gobackn_tx::finish()
 {
-    double package_error_rate = (1-(double)(numPaquete+1)/(double)transmitted_packets);
+    double package_error_rate = (1-(double)(numPaquete)/(double)transmitted_packets);
     EV << "package_error_rate: " << package_error_rate << endl;
-    EV << "throughput: " << (numPaquete+1)/simTime() << endl;
+    EV << "throughput: " << numPaquete/simTime() << endl;
 
     throughputStats.recordAs("Throughput");
 }
@@ -204,6 +204,7 @@ void gobackn_tx::insertInPendingPackets()
             if (pack ->getSequenceNumber() > currentMessage->getSequenceNumber())
             {
                 pendingPackets.insert(it, currentMessage);
+                return;
             }
         }
         if (it == pendingPackets.end())
@@ -226,9 +227,14 @@ void gobackn_tx::insertReceivedAck(int ack)
         for ( it = receivedAcks.begin(); it != receivedAcks.end(); ++it)
         {
             int ackIterated = *it;
-            if (ackIterated > ack)
+            if (ackIterated == ack)
+            {
+                return;
+            }
+            else if (ackIterated > ack)
             {
                 receivedAcks.insert(it, ack);
+                return;
             }
         }
         if (it == receivedAcks.end())
