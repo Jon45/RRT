@@ -48,8 +48,8 @@ network s_w
 {
 	types:
 		channel Channel extends ned.DatarateChannel {
-			delay = 499 ms;
-			datarate = 9600 bps;
+			delay = 49.99 ms;
+			datarate = 10 Mbps;
 		}
 	submodules:
 	tx: stop_wait_tx;
@@ -64,8 +64,8 @@ network gobackn
 {
 	types:
 		channel Channel extends ned.DatarateChannel {
-			delay = 499ms;
-			datarate = 9600 bps;
+			delay = 49.99 ms;
+			datarate = 10 Mbps;
 		}
 	submodules:
 	tx: gobackn_tx;

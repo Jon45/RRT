@@ -32,6 +32,7 @@ void gobackn_rx::handleMessage(cMessage *msg)
         paquete *confirmacion = new paquete("ack");
         confirmacion->setByteLength(0);
         confirmacion->setSequenceNumber(rec_msg -> getSequenceNumber());
+        confirmacion->setId(rec_msg -> getId());
         send(confirmacion, "gate$o");
     }
     delete msg;

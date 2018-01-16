@@ -29,6 +29,7 @@ class gobackn_tx : public cSimpleModule
     paquete *currentMessage;
     std::vector<paquete*> pendingPackets;
     std::vector<int> receivedAcks;
+    int id = 0;
 
   protected:
     virtual void initialize() override;
@@ -103,15 +104,18 @@ void gobackn_tx::handleMessage(cMessage *msg)
         else
         {
             paquete *pack = check_and_cast<paquete *>(msg);
-            EV << "Ack received: " << pack->getSequenceNumber();
-            std::map<int,myTimeoutMessage *>::iterator it = timeoutEvents.find(pack->getSequenceNumber());
-            if (it != timeoutEvents.end())
+            if (pack->getId() == id)
             {
-                cancelEvent(it -> second);
-                timeoutEvents.erase (it);
+                EV << "Ack received: " << pack->getSequenceNumber();
+                std::map<int,myTimeoutMessage *>::iterator it = timeoutEvents.find(pack->getSequenceNumber());
+                if (it != timeoutEvents.end())
+                {
+                    cancelEvent(it -> second);
+                    timeoutEvents.erase (it);
+                }
+                insertReceivedAck(pack->getSequenceNumber());
+                checkAndRemoveFromVectors();
             }
-            insertReceivedAck(pack->getSequenceNumber());
-            checkAndRemoveFromVectors();
         }
     }
     double throughput = numPaquete/simTime();
@@ -146,6 +150,7 @@ void gobackn_tx::sendPacket()
 {
     EV << "Sending packet with sequence number: " << currentMessage -> getSequenceNumber() << endl;
     numPaquete++;
+    currentMessage->setId(id);
     send(currentMessage -> dup(), "gate$o");
     transmitted_packets++;
     myTimeoutMessage *timeoutEvent = new myTimeoutMessage();
@@ -168,9 +173,9 @@ void gobackn_tx::onTimeoutEvent(cMessage *msg)
     receivedAcks.erase(receivedAcks.begin(),receivedAcks.end());
     resetQueue();
     cancelEvent(sendEvent);
-    simtime_t time = std::max(txChannel->getTransmissionFinishTime(),simTime());
-    scheduleAt(time, sendEvent);
-    //Igual cancelar sendEvent, cancelar transmisión y enviar instantáneamente. Considerar
+    txChannel->forceTransmissionFinishTime(simTime());
+    scheduleAt(simTime(), sendEvent);
+    id++;
 }
 
 void gobackn_tx::cancelTimeoutEvents()
