@@ -1,0 +1,7 @@
+out/
+*.exe
+*_m.*
+Makefile
+
+results/
+*.anf
