@@ -48,7 +48,7 @@ network s_w
 {
 	types:
 		channel Channel extends ned.DatarateChannel {
-			delay = 49.99 ms;
+			delay = 49.999999 ms;
 			datarate = 10 Mbps;
 		}
 	submodules:
