@@ -69,20 +69,21 @@ void gobackn_tx::handleMessage(cMessage *msg)
 {
     if (msg -> isSelfMessage())
     {
-        if (strcmp(msg->getName(),"timeoutEvent") == 0)
+        if (strcmp(msg->getName(),"timeoutEvent") == 0) // si el mensaje es un evento de timeout
         {
             onTimeoutEvent(msg);
         }
-        else if (msg == sendEvent)
+        else if (msg == sendEvent) // si el mensaje es un evento de enviar nuevo paquete
         {
             onSendEvent(msg);
         }
     }
 
-    else if (strcmp(msg->getArrivalGate()->getFullName(),"inPaquete") == 0)
+    else if (strcmp(msg->getArrivalGate()->getFullName(),"inPaquete") == 0) // Si me llega algo por inpaquete
     {
-        if (estado == idle)
+        if (estado == idle) //Si no está enviando nada
         {
+            //Lo envio directamente
             currentMessage = check_and_cast <paquete *>(msg);
             estado=active;
             sendPacket();
@@ -90,12 +91,13 @@ void gobackn_tx::handleMessage(cMessage *msg)
 
         else
         {
+            //Lo encolo
             txQueue->insert(msg);
         }
     }
     else
     {
-        if (uniform(0,1)<par("p_ack").doubleValue())
+        if (uniform(0,1)<par("p_ack").doubleValue()) //Pierdo ack con probabilidad p_ack
         {
             EV << "\"Losing\" ack.\n";
             bubble("ack lost");
@@ -104,17 +106,19 @@ void gobackn_tx::handleMessage(cMessage *msg)
         else
         {
             paquete *pack = check_and_cast<paquete *>(msg);
-            if (pack->getId() == id)
+            if (pack->getId() == id) //Solo hace caso al paquete si su id es la id actual. Esto me permite no hacer caso a acks provenientes de transmisiones producidas antes del timeout
+                //Basicamente, porque modela mejor el comportamiento que se definía, va a ser más parecido el resultado al teórico de esta manera
             {
                 EV << "Ack received: " << pack->getSequenceNumber();
-                std::map<int,myTimeoutMessage *>::iterator it = timeoutEvents.find(pack->getSequenceNumber());
+                std::map<int,myTimeoutMessage *>::iterator it = timeoutEvents.find(pack->getSequenceNumber()); // Como se ha recibido un ack, cancelo el evento de timeout correspondiente
+                //a ese ack
                 if (it != timeoutEvents.end())
                 {
                     cancelEvent(it -> second);
                     timeoutEvents.erase (it);
                 }
-                insertReceivedAck(pack->getSequenceNumber());
-                checkAndRemoveFromVectors();
+                insertReceivedAck(pack->getSequenceNumber()); //Inserto el ack en la lista de acks recibidos.
+                checkAndRemoveFromVectors(); //Compruebo si hay que eliminar paquetes pendientes y los elimino si es necesario
             }
         }
     }
@@ -136,6 +140,7 @@ void gobackn_tx::sendNewPacket()
 {
     if (txQueue->isEmpty() == false)
     {
+        //Si la cola está vacia, mando el mensaje actual
         currentMessage = check_and_cast<paquete *>(txQueue->pop());
         sendPacket();
     }
@@ -154,32 +159,33 @@ void gobackn_tx::sendPacket()
     send(currentMessage -> dup(), "gate$o");
     transmitted_packets++;
     myTimeoutMessage *timeoutEvent = new myTimeoutMessage();
-    timeoutEvent->setSequenceNumber(currentMessage -> getSequenceNumber());
+    timeoutEvent->setSequenceNumber(currentMessage -> getSequenceNumber()); // Para distinguir que timeout corresponde a que paquete
     timeoutEvent->setName("timeoutEvent");
-    timeoutEvents.insert({currentMessage -> getSequenceNumber(), timeoutEvent});
-    scheduleAt(txChannel->getTransmissionFinishTime()+timeout, timeoutEvent);
-    scheduleAt(txChannel->getTransmissionFinishTime(), sendEvent);
-    insertInPendingPackets();
+    timeoutEvents.insert({currentMessage -> getSequenceNumber(), timeoutEvent}); //Inserto el paquete en el mapa
+    scheduleAt(txChannel->getTransmissionFinishTime()+timeout, timeoutEvent); //El timeout se empieza a contar desde el final de la transmisión del paquete
+    scheduleAt(txChannel->getTransmissionFinishTime(), sendEvent); //Cuando se termina de enviar un paquete, se empieza a mandar el paquete
+    insertInPendingPackets(); //Se inserta en los paquetes pendientes de confirmar
 }
 
 void gobackn_tx::onTimeoutEvent(cMessage *msg)
 {
     EV << "Timeout expired" << endl;
     EV << "Timers cancelled.\n" << endl;
-    cancelTimeoutEvents();
+    cancelTimeoutEvents(); //Ha ocurrido un timeout, el resto ya no importan. Los cancelamos.
     myTimeoutMessage *timeout_rec = check_and_cast<myTimeoutMessage *>(msg);
-    numPaquete=timeout_rec->getSequenceNumber();
+    numPaquete=timeout_rec->getSequenceNumber(); // Reseteamos el número de paquete al del paquete que ha fallado
     EV << "Reset packet number to: " << numPaquete << endl;
-    receivedAcks.erase(receivedAcks.begin(),receivedAcks.end());
-    resetQueue();
-    cancelEvent(sendEvent);
-    txChannel->forceTransmissionFinishTime(simTime());
-    scheduleAt(simTime(), sendEvent);
-    id++;
+    receivedAcks.erase(receivedAcks.begin(),receivedAcks.end()); //La lista de acks recibidos se resetea. Se eliminan todos los elementos.
+    resetQueue(); //Se insertan los paquetes pendientes de nuevo en la cola de transmisión
+    cancelEvent(sendEvent); // Para que se empieze a enviar directamente después del timeout (para ajustarse al comportamiento teórico), se cancela el sendEvent ...
+    txChannel->forceTransmissionFinishTime(simTime()); //Y se fuerza al canal a que termine de transmitir el mensaje
+    scheduleAt(simTime(), sendEvent); //Se vuelve a armar el sendEvent
+    id++; // Se aumenta el id para distinguir acks anteriores al timeout que falten por llegar
 }
 
 void gobackn_tx::cancelTimeoutEvents()
 {
+    //Recorre el mapa, cancela todos los eventos, y resetea el mapa, eliminando todos los elementos
     std::map<int,myTimeoutMessage *>::iterator it;
     for (it=timeoutEvents.begin();it!=timeoutEvents.end();it++)
     {
@@ -197,11 +203,13 @@ void gobackn_tx::insertInPendingPackets()
 {
     if (pendingPackets.size() == 0)
     {
+        //Si tiene tamaño 0, se inserta sin más
         std::vector<paquete*>::iterator it = pendingPackets.begin();
         pendingPackets.insert(it,currentMessage);
     }
     else
     {
+        //Se inserta de forma ordenada en el vector, en función del número de secuencia. De menor a mayor
         std::vector<paquete*>::iterator it;
         for (it = pendingPackets.begin(); it != pendingPackets.end(); ++it)
         {
@@ -223,16 +231,18 @@ void gobackn_tx::insertReceivedAck(int ack)
 {
     if (receivedAcks.size() == 0)
     {
+        //Se inserta el ack recibido sin más
         std::vector<int>::iterator it = receivedAcks.begin();
         receivedAcks.insert(it,ack);
     }
     else
     {
+        //Se inserta de forma ordenada en el vector, en función del número de secuencia. De menor a mayor.
         std::vector<int>::iterator it;
         for ( it = receivedAcks.begin(); it != receivedAcks.end(); ++it)
         {
             int ackIterated = *it;
-            if (ackIterated == ack)
+            if (ackIterated == ack) // No puede haber duplicados
             {
                 return;
             }
@@ -253,6 +263,8 @@ void gobackn_tx::checkAndRemoveFromVectors()
 {
     while (receivedAcks.size()!=0 && pendingPackets.size()!=0 && pendingPackets.at(0)->getSequenceNumber() == receivedAcks.at(0))
     {
+        // Se eliminan los paquetes en orden. Es decir, si ha llegado ack con número de secuencia 1 y otro con 2, se elimina el paquete y ack recibido con número de secuencia 1 y después el de 2
+        //Se para si no se ha recibido ack para el paquete que está al inicio del vector
         EV << "Eliminado paquete con numero de secuencia " << pendingPackets.at(0)->getSequenceNumber();
         pendingPackets.erase(pendingPackets.begin());
         receivedAcks.erase(receivedAcks.begin());
@@ -261,6 +273,7 @@ void gobackn_tx::checkAndRemoveFromVectors()
 
 void gobackn_tx::resetQueue()
 {
+    //Se insertan paquetes de nuevo en la cola de transmisión. Se insertan de forma que los paquetes queden en orden en la cola (Que salgan primero los de menor número de secuencia)
     for (std::vector<paquete*>::reverse_iterator it = pendingPackets.rbegin(); it != pendingPackets.rend(); ++it)
     {
         paquete *pack = *it;
@@ -273,8 +286,8 @@ void gobackn_tx::resetQueue()
             txQueue->insert(pack);
         }
     }
-    estado = active;
-    pendingPackets.erase(pendingPackets.begin(),pendingPackets.end());
+    estado = active; //Esta función siempre inserta algún paquete en la cola. El estado debe ser active
+    pendingPackets.erase(pendingPackets.begin(),pendingPackets.end()); //Reseteamos el vector de paquetes pendientes y el de acks recibidos
     receivedAcks.erase(receivedAcks.begin(),receivedAcks.end());
 }
 
