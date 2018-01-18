@@ -46,23 +46,24 @@ void stop_wait_tx::initialize()
 
 void stop_wait_tx::handleMessage(cMessage *msg)
 {
-    if (msg->isSelfMessage())
+    if (msg->isSelfMessage()) // Si te llega un automensaje
     {
-        if (msg == timeoutEvent)
+        if (msg == timeoutEvent) // Se ha producido timeout
         {
             EV << "Timeout expired, resending message and restarting timer\n";
-            send(currentMessage->dup(), "gate$o");
-            scheduleAt(txChannel->getTransmissionFinishTime()+timeout, timeoutEvent);
+            send(currentMessage->dup(), "gate$o"); // Se reenvía el mensaje que ha fallado
+            scheduleAt(txChannel->getTransmissionFinishTime()+timeout, timeoutEvent); // Armar el timeout correspondiente. El timeout se cuenta desde que se termina el paquete
             transmitted_packets++;
         }
     }
 
     else
     {
-        if (strcmp(msg->getArrivalGate()->getFullName(),"inPaquete") == 0)
+        if (strcmp(msg->getArrivalGate()->getFullName(),"inPaquete") == 0) //Si el paquete me ha llegado por la interfaz inPaquete
             {
-                if (estado == idle)
+                if (estado == idle) // Si no se está enviando ningún paquete
                 {
+                    //Se envia directamente
                     currentMessage = check_and_cast <paquete *>(msg);
                     estado=active;
                     sendPacket();
@@ -70,13 +71,14 @@ void stop_wait_tx::handleMessage(cMessage *msg)
 
                 else
                 {
+                    //Se encola para enviar más adelante
                     txQueue->insert(msg);
                 }
             }
 
             else
             {
-                if (uniform(0,1)<par("p_ack").doubleValue())
+                if (uniform(0,1)<par("p_ack").doubleValue()) //Pierde ack con probabilidad p_ack
                 {
                     EV << "\"Losing\" ack.\n";
                     bubble("ack lost");
@@ -84,10 +86,11 @@ void stop_wait_tx::handleMessage(cMessage *msg)
 
                 else
                 {
+                    //Ha recibido ack correctamente
                     EV << "Timer cancelled.\n";
-                    cancelEvent(timeoutEvent);
+                    cancelEvent(timeoutEvent); //Como se ha recibido confirmación, se cancela el timeout del paquete
 
-                    numPaquete++;
+                    numPaquete++; //Se incrementa para enviar el siguiente paquete
                     sendNewPacket();
                 }
                 delete msg;
@@ -110,20 +113,23 @@ void stop_wait_tx::finish()
 
 void stop_wait_tx::sendNewPacket()
 {
-    if (txQueue->isEmpty() == false)
+    if (txQueue->isEmpty() == false) // Si la cola no está vacia
     {
+        //Se saca paquete de la cola y se envía
         currentMessage = check_and_cast<paquete *>(txQueue->pop());
         sendPacket();
     }
 
-    else
+    else // Si la cola está vacia
     {
+        //No hay nada que enviar. Se pasa a estado idle.
         estado = idle;
     }
 }
 
 void stop_wait_tx::sendPacket()
 {
+    //Se envia el mensaje actual.
     send(currentMessage -> dup(), "gate$o");
     scheduleAt(txChannel->getTransmissionFinishTime()+timeout, timeoutEvent);
     transmitted_packets++;

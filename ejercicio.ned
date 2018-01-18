@@ -48,7 +48,9 @@ network s_w
 {
 	types:
 		channel Channel extends ned.DatarateChannel {
-			delay = 49.999999 ms;
+			delay = 49.999999 ms; // Para s_w, las fórmulas teóricas asumen que timeout = lo que te tarda en enviar el ack (como el ack no dura nada y cuento timeout 
+			//desde que se termina de enviar el último bit del paquete, timeout = 2*delay. Pongo delay ligeramente inferior para asegurarme de que llega antes la 
+			//confirmación que el mensaje de timeout
 			datarate = 10 Mbps;
 		}
 	submodules:
