@@ -41,7 +41,7 @@ void Source::handleMessage(cMessage * msg){
     numPaquetesEnviados++;
     if (numPaquetesEnviados < totalPaquetes)
     {
-        scheduleAt(simTime()+(simtime_t) par("interArrivalsTime"),nuevoPqt);
+        scheduleAt(simTime()+(simtime_t) par("interArrivalsTime"),nuevoPqt); //Se podría hacer tiempo entre llegadas aleatorio con exponential()
     }
 }
 
@@ -50,6 +50,6 @@ paquete * Source::generaPaquete(){
     sprintf(nombrePaquete,"msg-%d",seq++);
     paquete *msg = new paquete(nombrePaquete,0);
     msg -> setSequenceNumber(seq);
-    msg -> setBitLength((int)par("packet_length"));
+    msg -> setBitLength((int)par("packet_length")); //Se podría hacer tamaño de paquete aleatorio
     return msg;
 }
